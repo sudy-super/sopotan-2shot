@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Instant AR Two-Shot</title>
+    <meta
+      name="description"
+      content="スマホのChromeとSafariでページを開くとすぐに3Dモデルが床に固定表示されるARツーショットアプリ"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="stylesheet" href="/style.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/examples/jsm/loaders/GLTFLoader.js": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <canvas id="xr-canvas" aria-hidden="true"></canvas>
+    <main id="overlay-root" class="overlay">
+      <section class="hero">
+        <h1>Instant AR Two-Shot</h1>
+        <p>
+          カメラ起動後、アプリが床面を自動で検出し、用意した3Dモデルをその場に固定表示します。
+          背景込みの写真は端末のスクリーンショットをご利用ください。
+        </p>
+      </section>
+      <section class="status-panel">
+        <p id="status-line" role="status" aria-live="polite">初期化中…</p>
+        <div class="actions">
+          <button id="retry-button" type="button" hidden>ARを再開</button>
+          <a
+            id="quicklook-link"
+            rel="ar"
+            href="/assets/model.usdz"
+            class="secondary"
+            >ARを外部で開く</a
+          >
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
