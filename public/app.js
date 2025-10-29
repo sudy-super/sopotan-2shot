@@ -77,17 +77,17 @@ retryButton?.addEventListener("click", () => {
 if (isIOSChromeLike) {
   setOverlayMode("idle");
   showRetry(false);
-  setStatus("iOSのChromeやFirefoxではWebXRが利用できません。下の「Quick Lookで開く」からネイティブARを起動するか、Safariで開き直してください。");
+  setStatus("この端末・ブラウザはWebXRのARに対応していません。Quick Look は Safari でのみ起動できます。");
 } else if (!navigator.xr || !immersiveArSupported) {
   setOverlayMode("idle");
   showRetry(false);
   let message = "この端末・ブラウザはWebXRのARに対応していません。";
   if (isiOS) {
-    message += " 「Quick Lookで開く」をタップしてネイティブARを起動してください。";
+    message += " 「Quick Lookで開く」 > 右上のキューブ状アイコンをタップしてARを起動してください。";
   } else if (isAndroid) {
     message += " 「Scene Viewerで開く」をタップするとGoogle Scene ViewerでAR体験が可能です。";
   } else {
-    message += " 3Dプレビューのみの体験になります。";
+    message += " このブラウザでは本アプリはご利用いただけません。";
   }
   setStatus(message);
 } else {
@@ -130,11 +130,6 @@ function initializeThree() {
 function setupExternalARLink() {
   if (!quickLookLink) return;
 
-  if (quickLookInstructionHandler) {
-    quickLookLink.removeEventListener("click", quickLookInstructionHandler);
-    quickLookInstructionHandler = undefined;
-  }
-
   const modelAbsoluteUrl = new URL(MODEL_URL, window.location.origin).href;
 
   if (isSafari) {
@@ -143,10 +138,14 @@ function setupExternalARLink() {
     quickLookLink.setAttribute("rel", "ar");
     quickLookLink.href = "/assets/model.usdz";
     quickLookLink.removeAttribute("aria-disabled");
-  } else if (isiOS) {
+    if (quickLookInstructionHandler) {
+      quickLookLink.removeEventListener("click", quickLookInstructionHandler);
+      quickLookInstructionHandler = undefined;
+    }
+  } else if (isIOSChromeLike) {
     quickLookLink.hidden = false;
-    quickLookLink.textContent = "Safariで開き直す";
-    quickLookLink.removeAttribute("rel");
+    quickLookLink.textContent = "Quick Lookで開く";
+    quickLookLink.setAttribute("rel", "nofollow");
     quickLookLink.href = "#";
     quickLookLink.setAttribute("aria-disabled", "true");
     quickLookInstructionHandler = (event) => {
@@ -154,6 +153,16 @@ function setupExternalARLink() {
       setStatus("Quick Look は Safari でのみ起動できます。共有メニューから「Safariで開く」を選択してください。");
     };
     quickLookLink.addEventListener("click", quickLookInstructionHandler);
+  } else if (isiOS) {
+    quickLookLink.hidden = false;
+    quickLookLink.textContent = "Quick Lookで開く";
+    quickLookLink.setAttribute("rel", "ar");
+    quickLookLink.href = "/assets/model.usdz";
+    quickLookLink.removeAttribute("aria-disabled");
+    if (quickLookInstructionHandler) {
+      quickLookLink.removeEventListener("click", quickLookInstructionHandler);
+      quickLookInstructionHandler = undefined;
+    }
   } else if (isAndroid) {
     quickLookLink.hidden = false;
     quickLookLink.textContent = "Scene Viewerで開く";
