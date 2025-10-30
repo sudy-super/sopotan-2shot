@@ -39,6 +39,7 @@ cd public
 npx http-server --ssl --cert ../localhost+1.pem --key ../localhost+1-key.pem
 # ブラウザで https://localhost:8080 にアクセス
 # wordnet: 192.168.10.17
+# coins wireless: 130.158.222.226
 # 家: 192.168.0.108
 ```
 
