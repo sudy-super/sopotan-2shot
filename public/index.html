@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Two-shot AR</title>
+    <title>そぽショット</title>
     <meta
       name="description"
       content="iOSとAndroidのネイティブARビューアで2ショットを撮影するためのシンプルなランチャー"
@@ -27,9 +27,11 @@
     ></model-viewer>
 
     <main class="content">
-      <h1 class="title">2ショットARを起動</h1>
-      <p class="lead">ARボタンを押すと端末標準の撮影UIが開きます。</p>
-      <button id="arLaunch" type="button" class="primary">ARで撮る</button>
+      <h1 class="title">そぽショット</h1>
+      <button id="arLaunch" type="button" class="primary">START</button>
+      <p id="androidShotNotice" class="notice" hidden>
+        Android版Chromeではシャッターボタンが実装されていません。スクリーンショット機能で撮影してください。
+      </p>
       <p class="fallback" role="status" aria-live="polite"></p>
     </main>
 

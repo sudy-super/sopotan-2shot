@@ -1,6 +1,7 @@
 const modelViewer = document.getElementById('mv');
 const arButton = document.getElementById('arLaunch');
 const fallbackLine = document.querySelector('.fallback');
+const screenshotNotice = document.getElementById('androidShotNotice');
 
 const userAgent = navigator.userAgent || '';
 const isiOS = /iP(ad|hone|od)/i.test(userAgent);
@@ -12,6 +13,7 @@ const hasChromeObject = typeof window !== 'undefined' && !!window.chrome &&
   (window.chrome.webstore || window.chrome.runtime);
 const isIOSChromeLike = isiOS && (/(CriOS|FxiOS|EdgiOS|OPiOS|GSA)/i.test(userAgent) || hasChromiumBrand || hasChromeObject);
 const isSafari = isiOS && !isIOSChromeLike && /Safari/i.test(userAgent);
+const isAndroidChrome = isAndroid && /Chrome\/\d+/i.test(userAgent) && !/Edg|OPR|SamsungBrowser/i.test(userAgent);
 const QL_URL = '/assets/model.usdz#allowsContentScaling=1';
 
 const openQuickLookInSafari = (url) => {
@@ -117,7 +119,7 @@ const syncSupportState = () => {
     return;
   }
 
-  setFallback('この端末・ブラウザはARに対応していません。');
+  setFallback('この端末・ブラウザはARに対応していません。対応OSはiOSまたはAndroid、対応ブラウザはiOS Safari / ChromeまたはAndroid Chromeです。');
 };
 
 const handleARStatus = (event) => {
@@ -138,6 +140,9 @@ const initialize = async () => {
   if (!modelViewer || !arButton) return;
 
   setFallback('ARの起動準備中です…');
+  if (screenshotNotice) {
+    screenshotNotice.hidden = !isAndroidChrome;
+  }
   await ensureModelViewerDefined();
   ensureManualRevealLoaded();
   syncSupportState();
