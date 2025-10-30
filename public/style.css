@@ -364,6 +364,10 @@ model-viewer.ar-launcher {
     font-size: 1rem;
   }
 
+  .cta-section {
+    margin-top: calc(-1 * var(--spacing-lg));
+  }
+
 }
 
 @media (max-width: 480px) {
