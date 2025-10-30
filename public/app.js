@@ -16,6 +16,19 @@ const isSafari = isiOS && !isIOSChromeLike && /Safari/i.test(userAgent);
 const isAndroidChrome = isAndroid && /Chrome\/\d+/i.test(userAgent) && !/Edg|OPR|SamsungBrowser/i.test(userAgent);
 const QL_URL = '/assets/model.usdz#allowsContentScaling=1';
 
+if (modelViewer) {
+  // Soften highlights so the model reads less plasticky across all materials.
+  modelViewer.addEventListener('load', () => {
+    const materials = modelViewer.model?.materials ?? [];
+    for (const material of materials) {
+      const pbr = material.pbrMetallicRoughness;
+      if (!pbr) continue;
+      if (typeof pbr.setRoughnessFactor === 'function') pbr.setRoughnessFactor(0.9);
+      if (typeof pbr.setMetallicFactor === 'function') pbr.setMetallicFactor(0.0);
+    }
+  });
+}
+
 const openQuickLookInSafari = (url) => {
   // Safari用：rel="ar" アンカーで起動（ユーザー操作内で同期的に実行する必要あり）
   const a = document.createElement('a');

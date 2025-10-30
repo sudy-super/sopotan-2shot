@@ -8,6 +8,9 @@
       name="description"
       content="そぽたんと2ショットが撮れるぞ！"
     />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css" />
     <script
       type="module"
@@ -27,17 +30,51 @@
     ></model-viewer>
 
     <main class="content">
-      <h1 class="title">そぽショット</h1>
-      <img
-        src="/assets/sopo_stage.png"
-        alt="そぽショットのステージ"
-        class="stage-visual"
-      />
-      <button id="arLaunch" type="button" class="primary">START</button>
-      <p id="androidShotNotice" class="notice" hidden>
-        Android版Chromeではシャッターボタンが実装されていません。スクリーンショット機能で撮影してください。
-      </p>
-      <p class="fallback" role="status" aria-live="polite"></p>
+      <!-- Added header with logo/branding -->
+      <header class="header">
+        <div class="logo">そぽショット</div>
+      </header>
+
+      <!-- Restructured hero section with modern layout -->
+      <div class="hero-section">
+        <div class="badge">AR Experience</div>
+        <h1 class="title">
+          <span class="title-line">そぽたんと</span>
+          <span class="title-line title-highlight">2ショット</span>
+        </h1>
+      </div>
+
+      <!-- Enhanced visual showcase area -->
+      <div class="visual-showcase">
+        <div class="showcase-card">
+          <img
+            src="/assets/sopo_stage.png"
+            alt="そぽショットのステージ"
+            class="stage-visual"
+          />
+          <div class="card-glow"></div>
+        </div>
+      </div>
+
+      <!-- Redesigned CTA section -->
+      <div class="cta-section">
+        <button id="arLaunch" type="button" class="primary-button">
+          <span class="button-text">START</span>
+          <svg class="button-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M7.5 15L12.5 10L7.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        
+        <p id="androidShotNotice" class="notice" hidden>
+          <svg class="notice-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 1.5C4.41 1.5 1.5 4.41 1.5 8C1.5 11.59 4.41 14.5 8 14.5C11.59 14.5 14.5 11.59 14.5 8C14.5 4.41 11.59 1.5 8 1.5ZM8 11C7.45 11 7 10.55 7 10C7 9.45 7.45 9 8 9C8.55 9 9 9.45 9 10C9 10.55 8.55 11 8 11ZM9 7.5H7V5H9V7.5Z" fill="currentColor"/>
+          </svg>
+          Android版Chromeではシャッターボタンが実装されていません。スクリーンショット機能で撮影してください。
+        </p>
+        
+        <p class="fallback" role="status" aria-live="polite"></p>
+      </div>
+
     </main>
 
     <script type="module" src="/app.js"></script>
