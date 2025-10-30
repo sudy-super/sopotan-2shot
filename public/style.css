@@ -342,12 +342,16 @@ model-viewer.ar-launcher {
   }
 
   .content {
-    gap: var(--spacing-2xl);
+    gap: var(--spacing-md);
   }
 
   .hero-section {
     gap: var(--spacing-md);
     margin-top: calc(-1 * var(--spacing-sm));
+  }
+
+  .visual-showcase {
+    margin-top: calc(-1 * var(--spacing-xs));
   }
 
   .title {
@@ -366,7 +370,7 @@ model-viewer.ar-launcher {
   }
 
   .cta-section {
-    margin-top: calc(-1 * var(--spacing-lg));
+    margin-top: calc(-1 * var(--spacing-sm));
   }
 
 }
