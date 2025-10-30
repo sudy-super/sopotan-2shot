@@ -10,8 +10,30 @@ const hasChromiumBrand = uaDataBrands.some(({ brand }) => /Chrom(e|ium)|Google/i
 const hasChromeObject = typeof window !== 'undefined' && !!window.chrome &&
   (typeof window.chrome === 'object') &&
   (window.chrome.webstore || window.chrome.runtime);
-const isIOSChromeLike = isiOS && (/(CriOS|FxiOS|EdgiOS|OPiOS)/i.test(userAgent) || hasChromiumBrand || hasChromeObject);
+const isIOSChromeLike = isiOS && (/(CriOS|FxiOS|EdgiOS|OPiOS|GSA)/i.test(userAgent) || hasChromiumBrand || hasChromeObject);
 const isSafari = isiOS && !isIOSChromeLike && /Safari/i.test(userAgent);
+const QL_URL = '/assets/model.usdz#allowsContentScaling=1';
+
+const openQuickLookInSafari = (url) => {
+  // Safari用：rel="ar" アンカーで起動（ユーザー操作内で同期的に実行する必要あり）
+  const a = document.createElement('a');
+  a.rel = 'ar';
+  a.href = url;
+  const img = document.createElement('img');
+  img.src =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNk+M/wHwAFygJ+Kcb5NwAAAABJRU5ErkJggg==';
+  img.alt = '';
+  img.width = img.height = 1;
+  a.appendChild(img);
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+};
+
+const openQuickLookInWKWebView = (url) => {
+  // WKWebView（iOS Chrome / GSA / Edge / Firefox 等）は blob: を開けないため HTTPS 直遷移
+  window.location.assign(url);
+};
 
 const setFallback = (message) => {
   if (!fallbackLine) return;
@@ -51,7 +73,7 @@ const syncSupportState = () => {
 
   const secureContext = window.isSecureContext;
   const hasWebXR = 'xr' in navigator;
-  const canUseQuickLookFallback = isiOS && canActivate === false && typeof modelViewer.prepareUSDZ === 'function';
+  const canUseQuickLookFallback = isiOS && canActivate === false;
   const supported = canActivate === true;
 
   arButton.disabled = !(supported || canUseQuickLookFallback);
@@ -128,59 +150,19 @@ const initialize = async () => {
 
 initialize();
 
-const launchIOSQuickLookFallback = async () => {
-  if (!modelViewer || typeof modelViewer.prepareUSDZ !== 'function') {
-    console.warn('prepareUSDZ が利用できません');
-    return false;
-  }
-
-  try {
-    const objectURL = await modelViewer.prepareUSDZ();
-    if (!objectURL) {
-      return false;
-    }
-
-    const anchor = document.createElement('a');
-    anchor.setAttribute('rel', 'ar');
-    anchor.setAttribute('href', objectURL);
-    anchor.style.position = 'absolute';
-    anchor.style.width = '1px';
-    anchor.style.height = '1px';
-    anchor.style.overflow = 'hidden';
-    anchor.style.clipPath = 'inset(50%)';
-
-    const img = document.createElement('img');
-    img.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNk+M/wHwAFygJ+Kcb5NwAAAABJRU5ErkJggg==';
-    img.alt = '';
-    img.width = 1;
-    img.height = 1;
-    anchor.appendChild(img);
-
-    document.body.appendChild(anchor);
-
-    anchor.click();
-
-    window.setTimeout(() => {
-      URL.revokeObjectURL(objectURL);
-      document.body.removeChild(anchor);
-    }, 1000);
-
-    return true;
-  } catch (error) {
-    console.warn('Quick Look fallback conversion failed', error);
-    return false;
-  }
-};
-
 arButton?.addEventListener('click', async () => {
   if (!modelViewer) return;
 
   if (isiOS && modelViewer.canActivateAR === false) {
-    setFallback('Quick Lookを準備しています…');
-    const launched = await launchIOSQuickLookFallback();
-    if (!launched) {
-      setFallback('Quick Lookが開けませんでした。Safariで再度お試しください。');
-      alert('Quick Lookが開けませんでした。Safariで再度お試しください。');
+    try {
+      if (isSafari) {
+        openQuickLookInSafari(QL_URL);
+      } else {
+        openQuickLookInWKWebView(QL_URL);
+      }
+    } catch (e) {
+      console.warn(e);
+      setFallback('Quick Lookを開けませんでした。Safariで再度お試しください。');
     }
     return;
   }

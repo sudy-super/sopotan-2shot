@@ -1,3 +1,7 @@
 /assets/*.glb
   Content-Type: model/gltf-binary
   X-Content-Type-Options: nosniff
+
+/assets/*.usdz
+  Content-Type: model/vnd.usdz+zip
+  X-Content-Type-Options: nosniff
