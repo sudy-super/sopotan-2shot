@@ -347,6 +347,7 @@ model-viewer.ar-launcher {
 
   .hero-section {
     gap: var(--spacing-md);
+    margin-top: calc(-1 * var(--spacing-sm));
   }
 
   .title {
