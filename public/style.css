@@ -51,6 +51,11 @@ model-viewer.ar-launcher {
   color: #0f172a;
 }
 
+.stage-visual {
+  width: min(100%, 320px);
+  height: auto;
+}
+
 .lead {
   margin: 0;
   font-size: clamp(1rem, 4vw, 1.1rem);
