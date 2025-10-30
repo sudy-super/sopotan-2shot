@@ -12,7 +12,7 @@ Instant AR Two-Shot は、Cloudflare Pages に静的デプロイできる WebXR 
 ## 対応ブラウザ
 - Android Chrome 121 以降 (WebXR AR 完全対応。非対応端末は「Scene Viewerで開く」でGoogle Scene Viewerに遷移)
 - iOS 17 以降の Safari (WebXR AR 対応)。iOS Chrome / Firefox / Edge は Quick Look フォールバックのみで、ボタンを押すと Safari で開き直す案内を表示します。
-- その他ブラウザは 3D ビューのみの体験になります。
+- その他ブラウザでは利用できません。
 
 > **Note:** 多くのブラウザではユーザー操作なしのカメラ起動が制限されています。自動開始がブロックされた場合、画面下部に「ARを再開」ボタンが表示されるのでタップしてください。
 
@@ -36,8 +36,10 @@ python -m http.server 8080 --bind 0.0.0.0
 ```bash
 # HTTPS 対応の静的サーバ例 (mkcert + http-server)
 cd public
-npx http-server --ssl --cert ../localhost.pem --key ../localhost-key.pem
+npx http-server --ssl --cert ../localhost+1.pem --key ../localhost+1-key.pem
 # ブラウザで https://localhost:8080 にアクセス
+# wordnet: 192.168.10.17
+# 家: 192.168.0.108
 ```
 
 簡易確認だけなら Chrome DevTools の「センサー > エミュレーション」で WebXR AR をエミュレートできますが、実動作は実機で確認してください。
@@ -50,7 +52,7 @@ wrangler pages deploy public
 
 ## 撮影について
 - WebXR セッション中のスクリーンキャプチャは端末の標準スクリーンショット機能を利用してください。
-- Safari で WebXR が無効な端末は Quick Look (USDZ) にフォールバックします。Quick Look 内のシャッターボタンで背景付き写真を撮影できます。
+- Safari で Quick Look (USDZ) を開いた後は、右上のキューブ状アイコンをタップすると AR 表示に切り替わります。AR 表示時は画面下のシャッターボタンで背景付き写真を撮影できます。
 
 ## 技術スタック
 - [Three.js](https://threejs.org/) (CDN @ `0.160.0`)

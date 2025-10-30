@@ -1,14 +1,8 @@
 :root {
   color-scheme: light dark;
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --overlay-bg: rgba(10, 13, 28, 0.6);
-  --overlay-bg-active: rgba(10, 13, 28, 0.35);
-  --accent: #6f8bff;
-  --accent-strong: #3250ff;
-  --text-strong: #f5f7ff;
-  --text-muted: rgba(245, 247, 255, 0.75);
-  background: #04060f;
-  color: var(--text-strong);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background-color: #f5f7fb;
+  color: #111827;
 }
 
 * {
@@ -19,164 +13,87 @@ html,
 body {
   margin: 0;
   min-height: 100%;
-  overscroll-behavior: contain;
-  background: #000;
-  color: var(--text-strong);
 }
 
 body {
-  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(32px, 7vw, 64px);
+  background: radial-gradient(circle at top, #ffffff 0%, #e5ebff 100%);
 }
 
-#xr-canvas {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  display: block;
-  touch-action: none;
-  background: #000;
+/* <model-viewer> をARランチャーとして待機させる */
+model-viewer.ar-launcher {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
 }
 
-.overlay {
-  position: fixed;
-  inset: 0;
+.content {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  padding: clamp(18px, 6vw, 48px);
-  pointer-events: none;
-  transition: background 200ms ease, opacity 200ms ease;
-  background: var(--overlay-bg);
-}
-
-.overlay[data-mode='in-session'] {
-  background: var(--overlay-bg-active);
-}
-
-.overlay[data-mode='in-session'] .hero {
-  opacity: 0;
-  transform: translateY(-16px);
-  pointer-events: none;
-}
-
-.overlay .hero {
-  max-width: 520px;
-  transition: opacity 220ms ease, transform 220ms ease;
-}
-
-.overlay .hero h1 {
-  margin: 0 0 12px;
-  font-size: clamp(2rem, 7vw, 2.75rem);
-  font-weight: 700;
-}
-
-.overlay .hero p {
-  margin: 0;
-  font-size: clamp(1rem, 3vw, 1.1rem);
-  line-height: 1.6;
-  color: var(--text-muted);
-}
-
-.status-panel {
-  display: grid;
+  align-items: center;
   gap: 16px;
-  align-items: flex-start;
-  pointer-events: none;
+  max-width: 420px;
+  text-align: center;
 }
 
-#status-line {
+.title {
   margin: 0;
-  font-size: clamp(1rem, 3vw, 1.25rem);
-  font-weight: 600;
-  color: var(--text-strong);
+  font-size: clamp(1.8rem, 6vw, 2.4rem);
+  font-weight: 700;
+  color: #0f172a;
 }
 
-.actions {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  pointer-events: auto;
+.lead {
+  margin: 0;
+  font-size: clamp(1rem, 4vw, 1.1rem);
+  color: rgba(15, 23, 42, 0.68);
+  line-height: 1.6;
 }
 
-button,
-.actions a {
+.primary {
   appearance: none;
   border: none;
   border-radius: 999px;
-  padding: 14px 26px;
+  padding: 14px 28px;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  text-decoration: none;
-  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  color: #fff;
+  color: #ffffff;
+  background: linear-gradient(135deg, #6366f1, #4338ca);
+  box-shadow: 0 12px 30px rgba(79, 70, 229, 0.28);
   transition: transform 120ms ease, box-shadow 120ms ease;
 }
 
-button:hover,
-.actions a:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 14px 28px rgba(18, 42, 150, 0.22);
+.primary:active {
+  transform: scale(0.99);
+  box-shadow: 0 8px 18px rgba(79, 70, 229, 0.25);
 }
 
-button:active,
-.actions a:active {
-  transform: translateY(0);
-  box-shadow: none;
-}
-
-button.secondary,
-.actions a.secondary {
-  background: rgba(255, 255, 255, 0.14);
-  color: var(--text-strong);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-}
-
-.actions a[aria-disabled="true"] {
-  cursor: default;
+.primary:disabled {
   opacity: 0.6;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text-muted);
-  border-color: rgba(255, 255, 255, 0.12);
-}
-
-.actions a[aria-disabled="true"]:hover {
-  transform: none;
-  box-shadow: none;
-}
-
-button:disabled {
-  opacity: 0.5;
   cursor: default;
   box-shadow: none;
-  transform: none;
 }
 
-@media (max-width: 640px) {
-  .overlay {
-    padding: 20px;
+.fallback {
+  min-height: 1.4em;
+  margin: 0;
+  font-size: 0.95rem;
+  color: rgba(15, 23, 42, 0.75);
+}
+
+@media (max-width: 520px) {
+  body {
+    padding: 32px 20px;
   }
 
-  .overlay[data-mode='in-session'] {
-    background: linear-gradient(
-      to top,
-      rgba(6, 9, 20, 0.55) 0%,
-      rgba(6, 9, 20, 0.12) 45%,
-      transparent 75%
-    );
-  }
-
-  .actions {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  button,
-  .actions a {
+  .content {
     width: 100%;
-    justify-content: center;
-    text-align: center;
   }
 }

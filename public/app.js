@@ -1,368 +1,236 @@
-import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+const modelViewer = document.getElementById('mv');
+const arButton = document.getElementById('arLaunch');
+const fallbackLine = document.querySelector('.fallback');
 
-const MODEL_URL = "/assets/model.glb";
-const overlayRoot = document.getElementById("overlay-root");
-const statusLine = document.getElementById("status-line");
-const retryButton = document.getElementById("retry-button");
-const quickLookLink = document.getElementById("quicklook-link");
-const canvas = document.getElementById("xr-canvas");
-
-const userAgent = navigator.userAgent || "";
-const isiOS = /iPhone|iPad|iPod/i.test(userAgent);
+const userAgent = navigator.userAgent || '';
+const isiOS = /iP(ad|hone|od)/i.test(userAgent);
 const isAndroid = /Android/i.test(userAgent);
 const isIOSChromeLike = isiOS && /(CriOS|FxiOS|EdgiOS|OPiOS)/i.test(userAgent);
 const isSafari = isiOS && !isIOSChromeLike && /Safari/i.test(userAgent);
 
-let renderer;
-let scene;
-let camera;
-let modelRoot;
-let xrSession;
-let xrRefSpace;
-let viewerSpace;
-let hitTestSource;
-let hitTestRequested = false;
-let anchor;
-let anchorSpace;
-let modelPlaced = false;
-let immersiveArSupported = false;
-let quickLookInstructionHandler;
+const setFallback = (message) => {
+  if (!fallbackLine) return;
+  fallbackLine.textContent = message;
+};
 
-const ready = () =>
-  new Promise((resolve) => {
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", resolve, { once: true });
-    } else {
-      resolve();
+const clearFallback = () => setFallback('');
+
+const ensureModelViewerDefined = async () => {
+  if (!customElements.get('model-viewer')) {
+    try {
+      await customElements.whenDefined('model-viewer');
+    } catch (error) {
+      console.warn('model-viewer custom element が初期化されませんでした', error);
     }
-  });
-
-const setStatus = (message) => {
-  if (!statusLine) return;
-  statusLine.textContent = message;
+  }
 };
 
-const setOverlayMode = (mode) => {
-  if (!overlayRoot) return;
-  overlayRoot.dataset.mode = mode;
+const ensureManualRevealLoaded = () => {
+  if (!modelViewer) return;
+
+  if (modelViewer.reveal === 'manual' && typeof modelViewer.dismissPoster === 'function') {
+    try {
+      modelViewer.dismissPoster();
+    } catch (error) {
+      console.debug('dismissPoster でエラーが発生しましたが無視します', error);
+    }
+  }
 };
 
-const showRetry = (show) => {
-  if (!retryButton) return;
-  retryButton.hidden = !show;
-};
-
-await ready();
-
-if (!canvas) {
-  throw new Error("Canvas element #xr-canvas が見つかりません");
-}
-
-setupExternalARLink();
-
-if (navigator.xr?.isSessionSupported) {
+const buildAbsoluteUrl = (relativeOrAbsolute) => {
   try {
-    immersiveArSupported = await navigator.xr.isSessionSupported("immersive-ar");
+    return new URL(relativeOrAbsolute, window.location.href).toString();
   } catch (error) {
-    console.warn("Failed to query immersive-ar support", error);
-    immersiveArSupported = false;
+    console.warn('URLの解決に失敗しました', relativeOrAbsolute, error);
+    return null;
   }
-}
+};
 
-retryButton?.addEventListener("click", () => {
-  startSession();
-});
+const syncSupportState = () => {
+  if (!modelViewer || !arButton) return;
 
-if (isIOSChromeLike) {
-  setOverlayMode("idle");
-  showRetry(false);
-  setStatus("この端末・ブラウザはWebXRのARに対応していません。Quick Look は Safari でのみ起動できます。");
-} else if (!navigator.xr || !immersiveArSupported) {
-  setOverlayMode("idle");
-  showRetry(false);
-  let message = "この端末・ブラウザはWebXRのARに対応していません。";
-  if (isiOS) {
-    message += " 「Quick Lookで開く」 > 右上のキューブ状アイコンをタップしてARを起動してください。";
-  } else if (isAndroid) {
-    message += " 「Scene Viewerで開く」をタップするとGoogle Scene ViewerでAR体験が可能です。";
-  } else {
-    message += " このブラウザでは本アプリはご利用いただけません。";
+  const canActivate = typeof modelViewer.canActivateAR === 'boolean'
+    ? modelViewer.canActivateAR
+    : null;
+
+  arButton.disabled = false;
+
+  if (canActivate) {
+    clearFallback();
+    return;
   }
-  setStatus(message);
-} else {
-  initializeThree();
 
-  // 初回は自動でセッション開始を試みる
-  startSession(true).catch((error) => {
-    console.warn("Auto-start failed", error);
-  });
-}
-
-function initializeThree() {
-  renderer = new THREE.WebGLRenderer({
-    antialias: true,
-    alpha: true,
-    canvas,
-  });
-  renderer.xr.enabled = true;
-  renderer.xr.setReferenceSpaceType("local");
-  renderer.autoClear = false;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  resizeRenderer();
-
-  scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.01, 30);
-
-  const light = new THREE.HemisphereLight(0xffffff, 0x445566, 1.0);
-  scene.add(light);
-
-  const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-  dirLight.position.set(0.2, 1, 0.1);
-  scene.add(dirLight);
-
-  createReticle();
-  loadModel();
-
-  window.addEventListener("resize", resizeRenderer);
-}
-
-function setupExternalARLink() {
-  if (!quickLookLink) return;
-
-  const modelAbsoluteUrl = new URL(MODEL_URL, window.location.origin).href;
+  if (isiOS && !isSafari) {
+    setFallback('iOS版Chrome等ではQuick Lookを別ウィンドウで開きます。起動しない場合はSafariをご利用ください。');
+    return;
+  }
 
   if (isSafari) {
-    quickLookLink.hidden = false;
-    quickLookLink.textContent = "Quick Lookで開く";
-    quickLookLink.setAttribute("rel", "ar");
-    quickLookLink.href = "/assets/model.usdz";
-    quickLookLink.removeAttribute("aria-disabled");
-    if (quickLookInstructionHandler) {
-      quickLookLink.removeEventListener("click", quickLookInstructionHandler);
-      quickLookInstructionHandler = undefined;
+    if (canActivate === null) {
+      setFallback('ARの対応状況を確認しています…');
+    } else {
+      setFallback('Quick Lookの準備に失敗しました。HTTPS証明書が信頼済みか確認してください。');
     }
-  } else if (isIOSChromeLike) {
-    quickLookLink.hidden = false;
-    quickLookLink.textContent = "Quick Lookで開く";
-    quickLookLink.setAttribute("rel", "nofollow");
-    quickLookLink.href = "#";
-    quickLookLink.setAttribute("aria-disabled", "true");
-    quickLookInstructionHandler = (event) => {
-      event.preventDefault();
-      setStatus("Quick Look は Safari でのみ起動できます。共有メニューから「Safariで開く」を選択してください。");
-    };
-    quickLookLink.addEventListener("click", quickLookInstructionHandler);
-  } else if (isiOS) {
-    quickLookLink.hidden = false;
-    quickLookLink.textContent = "Quick Lookで開く";
-    quickLookLink.setAttribute("rel", "ar");
-    quickLookLink.href = "/assets/model.usdz";
-    quickLookLink.removeAttribute("aria-disabled");
-    if (quickLookInstructionHandler) {
-      quickLookLink.removeEventListener("click", quickLookInstructionHandler);
-      quickLookInstructionHandler = undefined;
-    }
+    return;
+  }
+
+  if (isAndroid) {
+    setFallback('Scene Viewerは公開HTTPSのGLBとARCore対応端末が必要です。証明書と公開URLを確認してください。');
+    return;
+  }
+
+  if (canActivate === null) {
+    setFallback('ARの対応状況を確認しています…');
+    return;
+  }
+
+  if (isiOS) {
+    setFallback('この端末はQuick Lookが利用できない設定です。iOS Safariで再度お試しください。');
   } else if (isAndroid) {
-    quickLookLink.hidden = false;
-    quickLookLink.textContent = "Scene Viewerで開く";
-    quickLookLink.setAttribute("rel", "ar");
-    const intentUrl = `intent://arvr.google.com/scene-viewer/1.0?file=${encodeURIComponent(
-      modelAbsoluteUrl
-    )}&mode=ar_preferred&link=${encodeURIComponent(
-      window.location.href
-    )}#Intent;scheme=https;package=com.google.ar.core;action=android.intent.action.VIEW;end`;
-    quickLookLink.href = intentUrl;
-    quickLookLink.removeAttribute("aria-disabled");
+    setFallback('この端末はScene Viewerに対応していません。ARCore対応端末か最新版Chromeをご利用ください。');
   } else {
-    quickLookLink.hidden = true;
+    setFallback('この端末・ブラウザはARに対応していません。');
   }
-}
+};
 
-let reticle;
-const placeMatrix = new THREE.Matrix4();
+const handleARStatus = (event) => {
+  const { status, reason } = event.detail || {};
+  if (status === 'failed') {
+    setFallback('ARの起動に失敗しました。別のブラウザや端末をお試しください。');
+    if (reason) {
+      console.warn('AR failed', reason);
+    }
+  }
 
-function createReticle() {
-  const geometry = new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2);
-  const material = new THREE.MeshBasicMaterial({
-    color: 0x66ccff,
-    transparent: true,
-    opacity: 0.6,
-  });
-  reticle = new THREE.Mesh(geometry, material);
-  reticle.matrixAutoUpdate = false;
-  reticle.visible = false;
-  scene.add(reticle);
-}
+  if (status === 'not-presenting') {
+    syncSupportState();
+  }
+};
 
-async function loadModel() {
-  const loader = new GLTFLoader();
+const initialize = async () => {
+  if (!modelViewer || !arButton) return;
+
+  setFallback('ARの起動準備中です…');
+  await ensureModelViewerDefined();
+  ensureManualRevealLoaded();
+  syncSupportState();
+
+  modelViewer.addEventListener('load', syncSupportState);
+  modelViewer.addEventListener('model-ready', syncSupportState);
+  modelViewer.addEventListener('model-visibility', syncSupportState, { once: true });
+  modelViewer.addEventListener('ar-status', handleARStatus);
+};
+
+initialize();
+
+const launchIOSQuickLookFallback = () => {
+  const iosSrc = modelViewer?.getAttribute('ios-src');
+  if (!iosSrc) {
+    setFallback('Quick Look用のモデルが見つかりません。');
+    return false;
+  }
+
+  const absolute = buildAbsoluteUrl(iosSrc);
+  if (!absolute) {
+    setFallback('Quick Look用URLを解決できませんでした。');
+    return false;
+  }
+
+  const anchor = document.createElement('a');
+  anchor.setAttribute('rel', 'ar');
+  anchor.setAttribute('href', absolute);
+  anchor.style.position = 'absolute';
+  anchor.style.width = '1px';
+  anchor.style.height = '1px';
+  anchor.style.overflow = 'hidden';
+  anchor.style.clipPath = 'inset(50%)';
+
+  const img = document.createElement('img');
+  img.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNk+M/wHwAFygJ+Kcb5NwAAAABJRU5ErkJggg==';
+  img.alt = '';
+  img.width = 1;
+  img.height = 1;
+  anchor.appendChild(img);
+
+  document.body.appendChild(anchor);
+
   try {
-    const gltf = await loader.loadAsync(MODEL_URL);
-    modelRoot = gltf.scene;
-    modelRoot.visible = false;
-    modelRoot.traverse((child) => {
-      if (child.isMesh) {
-        child.castShadow = false;
-        child.receiveShadow = false;
-      }
-    });
-    scene.add(modelRoot);
+    anchor.click();
+    return true;
   } catch (error) {
-    console.error("Failed to load GLB", error);
-    setStatus("3Dモデルを読み込めませんでした。");
+    console.warn('Quick Look fallback click failed', error);
+    return false;
+  } finally {
+    document.body.removeChild(anchor);
   }
-}
+};
 
-function resizeRenderer() {
-  if (!renderer) return;
-  const width = window.innerWidth;
-  const height = window.innerHeight;
-  renderer.setSize(width, height, false);
-  if (camera) {
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
-  }
-}
-
-async function startSession(isAuto = false) {
-  if (!navigator.xr) return;
-
-  if (xrSession) {
-    await xrSession.end();
+const launchAndroidSceneViewerIntent = () => {
+  const src = modelViewer?.getAttribute('src');
+  if (!src) {
+    setFallback('Scene Viewer用のモデルが見つかりません。');
+    return false;
   }
 
-  setOverlayMode("starting");
-  setStatus("カメラ起動中…");
-  showRetry(false);
+  const absolute = buildAbsoluteUrl(src);
+  if (!absolute) {
+    setFallback('Scene Viewer用URLを解決できませんでした。');
+    return false;
+  }
+
+  if (!absolute.startsWith('https://')) {
+    setFallback('Scene ViewerはHTTPSで公開されたURLが必要です。');
+    alert('Scene ViewerはHTTPSで公開されたURLが必要です。');
+    return false;
+  }
+
+  const sceneViewerHref = `intent://arvr.google.com/scene-viewer/1.0?file=${encodeURIComponent(absolute)}&mode=ar_only#Intent;scheme=https;package=com.google.ar.core;S.browser_fallback_url=${encodeURIComponent(window.location.href)};end;`;
+
+  const anchor = document.createElement('a');
+  anchor.setAttribute('href', sceneViewerHref);
+  document.body.appendChild(anchor);
 
   try {
-    const session = await navigator.xr.requestSession("immersive-ar", {
-      requiredFeatures: ["hit-test"],
-      optionalFeatures: ["dom-overlay", "plane-detection", "anchors", "light-estimation"],
-      domOverlay: { root: overlayRoot },
-    });
-
-    xrSession = session;
-    hitTestSource = null;
-    hitTestRequested = false;
-    modelPlaced = false;
-    anchor = null;
-    anchorSpace = null;
-
-    session.addEventListener("end", () => {
-      setOverlayMode("idle");
-      setStatus("ARセッションを終了しました。ARを再開を押すと再接続します。");
-      showRetry(true);
-      if (reticle) reticle.visible = false;
-      hitTestSource?.cancel?.();
-      hitTestSource = null;
-      hitTestRequested = false;
-      anchor = null;
-      anchorSpace = null;
-      renderer.setAnimationLoop(null);
-    });
-
-    renderer.xr.setSession(session);
-    xrRefSpace = await session.requestReferenceSpace("local");
-    viewerSpace = await session.requestReferenceSpace("viewer");
-
-    setOverlayMode("in-session");
-    setStatus("床をスキャンしています…");
-
-    renderer.setAnimationLoop(onXRFrame);
+    anchor.click();
+    return true;
   } catch (error) {
-    setOverlayMode("idle");
-    showRetry(true);
-
-    if (isAuto && error?.name === "NotAllowedError") {
-      setStatus("ブラウザにより自動起動がブロックされました。ARを再開を押してください。");
-      return;
-    }
-
-    setStatus(`ARを開始できませんでした: ${error?.message || error}`);
-    throw error;
+    console.warn('Scene Viewer intent の起動に失敗しました', error);
+    return false;
+  } finally {
+    document.body.removeChild(anchor);
   }
-}
+};
 
-function onXRFrame(time, frame) {
-  const session = renderer.xr.getSession();
-  if (!session || !frame) return;
+arButton?.addEventListener('click', () => {
+  if (!modelViewer) return;
 
-  const referenceSpace = xrRefSpace;
-  if (!referenceSpace) return;
-
-  if (!hitTestRequested) {
-    session.requestHitTestSource({ space: viewerSpace }).then((source) => {
-      hitTestSource = source;
-    });
-    hitTestRequested = true;
+  if (isiOS && !isSafari) {
+    const launched = launchIOSQuickLookFallback();
+    if (!launched) {
+      setFallback('Quick Lookが開けませんでした。Safariで再度お試しください。');
+      alert('Quick Lookが開けませんでした。Safariで再度お試しください。');
+    }
+    return;
   }
 
-  if (hitTestSource) {
-    const hitTestResults = frame.getHitTestResults(hitTestSource);
-
-    if (!modelPlaced && hitTestResults.length > 0) {
-      const hit = hitTestResults[0];
-      const pose = hit.getPose(referenceSpace);
-      if (pose) {
-        placeMatrix.fromArray(pose.transform.matrix);
-        reticle?.matrix.copy(placeMatrix);
-        reticle.visible = true;
-
-        if (hit.createAnchor) {
-          hit
-            .createAnchor()
-            .then((createdAnchor) => {
-              anchor = createdAnchor;
-              anchorSpace = createdAnchor.anchorSpace;
-              modelPlaced = true;
-              if (modelRoot) {
-                modelRoot.matrixAutoUpdate = false;
-                modelRoot.visible = true;
-                modelRoot.matrixWorldNeedsUpdate = true;
-              }
-              if (reticle) reticle.visible = false;
-              setStatus("モデルを固定しました。自由に動いてツーショットを撮影してください。");
-            })
-            .catch((error) => {
-              console.warn("Anchor creation failed", error);
-              applyTransformOnce();
-            });
-        } else {
-          applyTransformOnce();
-        }
-
-        function applyTransformOnce() {
-          modelPlaced = true;
-          if (!modelRoot) return;
-          modelRoot.visible = true;
-          modelRoot.matrixAutoUpdate = false;
-          modelRoot.matrix.copy(placeMatrix);
-          modelRoot.matrix.decompose(modelRoot.position, modelRoot.quaternion, modelRoot.scale);
-          modelRoot.matrixWorldNeedsUpdate = true;
-          if (reticle) reticle.visible = false;
-          setStatus("モデルを固定しました。自由に動いてツーショットを撮影してください。");
-        }
-      }
+  if (isAndroid) {
+    const launched = launchAndroidSceneViewerIntent();
+    if (!launched) {
+      setFallback('Scene Viewerが起動できませんでした。公開HTTPS環境に配置されているか確認してください。');
     }
-
-    if (!modelPlaced && hitTestResults.length === 0) {
-      reticle && (reticle.visible = false);
-      setStatus("床を認識中… 端末をゆっくり動かしてください。");
-    }
+    return;
   }
 
-  if (anchorSpace && modelRoot) {
-    const anchorPose = frame.getPose(anchorSpace, referenceSpace);
-    if (anchorPose) {
-      modelRoot.matrix.copy(placeMatrix.fromArray(anchorPose.transform.matrix));
-      modelRoot.matrix.decompose(modelRoot.position, modelRoot.quaternion, modelRoot.scale);
-      modelRoot.matrixWorldNeedsUpdate = true;
+  if (modelViewer.canActivateAR) {
+    try {
+      modelViewer.activateAR();
+    } catch (error) {
+      console.warn('activateAR failed', error);
+      setFallback('ARの起動に失敗しました。もう一度お試しください。');
     }
+    return;
   }
 
-  renderer.render(scene, camera);
-}
-
-export {}; // 明示的にモジュール化
+  setFallback('この端末・ブラウザはARに対応していません。');
+  alert('この端末・ブラウザはARに対応していません。');
+});
