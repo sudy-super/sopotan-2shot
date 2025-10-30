@@ -2,6 +2,7 @@ const modelViewer = document.getElementById('mv');
 const arButton = document.getElementById('arLaunch');
 const fallbackLine = document.querySelector('.fallback');
 const screenshotNotice = document.getElementById('androidShotNotice');
+const variantButtons = document.querySelectorAll('.variant-btn');
 
 const userAgent = navigator.userAgent || '';
 const isiOS = /iP(ad|hone|od)/i.test(userAgent);
@@ -14,7 +15,17 @@ const hasChromeObject = typeof window !== 'undefined' && !!window.chrome &&
 const isIOSChromeLike = isiOS && (/(CriOS|FxiOS|EdgiOS|OPiOS|GSA)/i.test(userAgent) || hasChromiumBrand || hasChromeObject);
 const isSafari = isiOS && !isIOSChromeLike && /Safari/i.test(userAgent);
 const isAndroidChrome = isAndroid && /Chrome\/\d+/i.test(userAgent) && !/Edg|OPR|SamsungBrowser/i.test(userAgent);
-const QL_URL = '/assets/model.usdz#allowsContentScaling=1';
+const stripHash = (value) => (typeof value === 'string' ? value.split('#')[0] : '');
+let currentVariant = {
+  glb: modelViewer?.getAttribute('src') || '/assets/model.glb',
+  usdz: stripHash(modelViewer?.getAttribute('ios-src')) || '/assets/model.usdz',
+};
+const getQuickLookUrl = () => `${currentVariant.usdz}#allowsContentScaling=1`;
+const setVariantButtonsDisabled = (disabled) => {
+  variantButtons.forEach((button) => {
+    button.disabled = !!disabled;
+  });
+};
 
 if (modelViewer) {
   // Soften highlights so the model reads less plasticky across all materials.
@@ -135,8 +146,67 @@ const syncSupportState = () => {
   setFallback('この端末・ブラウザはARに対応していません。対応OSはiOSまたはAndroid、対応ブラウザはiOS Safari / ChromeまたはAndroid Chromeです。');
 };
 
+const applyVariant = ({ glb, usdz }) => {
+  if (!modelViewer) return;
+
+  const normalizedUsdz = stripHash(usdz) || usdz;
+  modelViewer.src = glb;
+  modelViewer.setAttribute('ios-src', `${normalizedUsdz}#allowsContentScaling=1`);
+  currentVariant = { glb, usdz: normalizedUsdz };
+
+  ensureManualRevealLoaded();
+  syncSupportState();
+};
+
+variantButtons.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    variantButtons.forEach((button) => {
+      button.classList.toggle('is-active', button === btn);
+    });
+    applyVariant({ glb: btn.dataset.glb, usdz: btn.dataset.usdz });
+    try {
+      localStorage.setItem('variant', JSON.stringify(currentVariant));
+    } catch (error) {
+      console.debug('variant の永続化に失敗しました', error);
+    }
+  });
+});
+
+const initVariant = () => {
+  let initial = { ...currentVariant };
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('variant') === '2') {
+    initial = { glb: '/assets/model2.glb', usdz: '/assets/model2.usdz' };
+  }
+
+  try {
+    const saved = JSON.parse(localStorage.getItem('variant') || 'null');
+    if (saved?.glb && saved?.usdz) {
+      initial = { glb: saved.glb, usdz: saved.usdz };
+    }
+  } catch (error) {
+    console.debug('保存済み variant の読み込みに失敗しました', error);
+  }
+
+  const targetBtn = [...variantButtons].find((button) => button.dataset.glb === initial.glb);
+  if (targetBtn) {
+    targetBtn.click();
+  } else {
+    applyVariant(initial);
+    variantButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.glb === initial.glb);
+    });
+  }
+};
+
+setVariantButtonsDisabled(false);
+
 const handleARStatus = (event) => {
   const { status, reason } = event.detail || {};
+  if (status) {
+    const inAR = status === 'session-started' || status === 'object-placed';
+    setVariantButtonsDisabled(inAR);
+  }
   if (status === 'failed') {
     setFallback('ARの起動に失敗しました。別のブラウザや端末をお試しください。');
     if (reason) {
@@ -166,17 +236,18 @@ const initialize = async () => {
   modelViewer.addEventListener('ar-status', handleARStatus);
 };
 
-initialize();
+initialize().finally(initVariant);
 
 arButton?.addEventListener('click', async () => {
   if (!modelViewer) return;
 
   if (isiOS && modelViewer.canActivateAR === false) {
     try {
+      const url = getQuickLookUrl();
       if (isSafari) {
-        openQuickLookInSafari(QL_URL);
+        openQuickLookInSafari(url);
       } else {
-        openQuickLookInWKWebView(QL_URL);
+        openQuickLookInWKWebView(url);
       }
     } catch (e) {
       console.warn(e);

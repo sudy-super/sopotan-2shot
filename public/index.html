@@ -10,6 +10,8 @@
     />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="prefetch" href="/assets/model2.glb" as="fetch" crossorigin>
+    <link rel="prefetch" href="/assets/model2.usdz" as="fetch" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css" />
     <script
@@ -58,6 +60,11 @@
 
       <!-- Redesigned CTA section -->
       <div class="cta-section">
+        <div class="variant-switch" role="group" aria-label="表情切り替え">
+          <button type="button" class="variant-btn is-active" data-glb="/assets/model.glb" data-usdz="/assets/model.usdz">・ω・</button>
+          <button type="button" class="variant-btn" data-glb="/assets/model2.glb" data-usdz="/assets/model2.usdz">>_<</button>
+        </div>
+
         <button id="arLaunch" type="button" class="primary-button">
           <span class="button-text">START</span>
           <svg class="button-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
