@@ -1,0 +1,14 @@
+{
+  "name": "sopotan-2shot",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.js",
+    "dev": "wrangler pages dev public",
+    "preview": "wrangler pages dev dist",
+    "deploy": "wrangler pages deploy dist"
+  },
+  "devDependencies": {
+    "wrangler": "^4.45.2"
+  }
+}

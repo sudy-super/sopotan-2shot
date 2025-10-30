@@ -47,9 +47,11 @@ npx http-server --ssl --cert ../localhost+1.pem --key ../localhost+1-key.pem
 
 ## Cloudflare Pages へデプロイ
 ```bash
-wrangler pages deploy public
+npm install
+npm run build
+wrangler pages deploy dist
 ```
-ダッシュボードから作成する場合もビルドコマンドは空、出力ディレクトリを `public` に設定してください。
+ダッシュボードから作成する場合もビルドコマンドを `npm run build`、出力ディレクトリを `dist` に設定してください。
 
 ## 撮影について
 - WebXR セッション中のスクリーンキャプチャは端末の標準スクリーンショット機能を利用してください。
