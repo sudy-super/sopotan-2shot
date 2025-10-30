@@ -5,7 +5,12 @@ const fallbackLine = document.querySelector('.fallback');
 const userAgent = navigator.userAgent || '';
 const isiOS = /iP(ad|hone|od)/i.test(userAgent);
 const isAndroid = /Android/i.test(userAgent);
-const isIOSChromeLike = isiOS && /(CriOS|FxiOS|EdgiOS|OPiOS)/i.test(userAgent);
+const uaDataBrands = navigator.userAgentData?.brands ?? [];
+const hasChromiumBrand = uaDataBrands.some(({ brand }) => /Chrom(e|ium)|Google/i.test(brand));
+const hasChromeObject = typeof window !== 'undefined' && !!window.chrome &&
+  (typeof window.chrome === 'object') &&
+  (window.chrome.webstore || window.chrome.runtime);
+const isIOSChromeLike = isiOS && (/(CriOS|FxiOS|EdgiOS|OPiOS)/i.test(userAgent) || hasChromiumBrand || hasChromeObject);
 const isSafari = isiOS && !isIOSChromeLike && /Safari/i.test(userAgent);
 
 const setFallback = (message) => {
@@ -37,15 +42,6 @@ const ensureManualRevealLoaded = () => {
   }
 };
 
-const buildAbsoluteUrl = (relativeOrAbsolute) => {
-  try {
-    return new URL(relativeOrAbsolute, window.location.href).toString();
-  } catch (error) {
-    console.warn('URLの解決に失敗しました', relativeOrAbsolute, error);
-    return null;
-  }
-};
-
 const syncSupportState = () => {
   if (!modelViewer || !arButton) return;
 
@@ -53,29 +49,20 @@ const syncSupportState = () => {
     ? modelViewer.canActivateAR
     : null;
 
-  arButton.disabled = false;
+  const secureContext = window.isSecureContext;
+  const hasWebXR = 'xr' in navigator;
+  const canUseQuickLookFallback = isiOS && canActivate === false && typeof modelViewer.prepareUSDZ === 'function';
+  const supported = canActivate === true;
 
-  if (canActivate) {
+  arButton.disabled = !(supported || canUseQuickLookFallback);
+
+  if (supported) {
     clearFallback();
     return;
   }
 
-  if (isiOS && !isSafari) {
-    setFallback('iOS版Chrome等ではQuick Lookを別ウィンドウで開きます。起動しない場合はSafariをご利用ください。');
-    return;
-  }
-
-  if (isSafari) {
-    if (canActivate === null) {
-      setFallback('ARの対応状況を確認しています…');
-    } else {
-      setFallback('Quick Lookの準備に失敗しました。HTTPS証明書が信頼済みか確認してください。');
-    }
-    return;
-  }
-
-  if (isAndroid) {
-    setFallback('Scene Viewerは公開HTTPSのGLBとARCore対応端末が必要です。証明書と公開URLを確認してください。');
+  if (!secureContext) {
+    setFallback('ARの起動にはHTTPSが必要です。信頼できる証明書でアクセスしてください。');
     return;
   }
 
@@ -84,13 +71,31 @@ const syncSupportState = () => {
     return;
   }
 
+  if (canUseQuickLookFallback) {
+    setFallback('iOS版Chrome等ではQuick Lookを別ウィンドウで開きます。起動しない場合はSafariをご利用ください。');
+    return;
+  }
+
+  if (isSafari) {
+    setFallback('Quick Lookの準備に失敗しました。証明書とファイルURLをご確認ください。');
+    return;
+  }
+
+  if (isAndroid) {
+    if (!hasWebXR) {
+      setFallback('このブラウザはWebXRに対応していません。Chrome最新版をご利用ください。');
+    } else {
+      setFallback('WebXR ARを起動できません。Chromeの設定でAR機能が有効か、ARCoreがインストールされているか確認してください。');
+    }
+    return;
+  }
+
   if (isiOS) {
     setFallback('この端末はQuick Lookが利用できない設定です。iOS Safariで再度お試しください。');
-  } else if (isAndroid) {
-    setFallback('この端末はScene Viewerに対応していません。ARCore対応端末か最新版Chromeをご利用ください。');
-  } else {
-    setFallback('この端末・ブラウザはARに対応していません。');
+    return;
   }
+
+  setFallback('この端末・ブラウザはARに対応していません。');
 };
 
 const handleARStatus = (event) => {
@@ -123,100 +128,59 @@ const initialize = async () => {
 
 initialize();
 
-const launchIOSQuickLookFallback = () => {
-  const iosSrc = modelViewer?.getAttribute('ios-src');
-  if (!iosSrc) {
-    setFallback('Quick Look用のモデルが見つかりません。');
+const launchIOSQuickLookFallback = async () => {
+  if (!modelViewer || typeof modelViewer.prepareUSDZ !== 'function') {
+    console.warn('prepareUSDZ が利用できません');
     return false;
   }
-
-  const absolute = buildAbsoluteUrl(iosSrc);
-  if (!absolute) {
-    setFallback('Quick Look用URLを解決できませんでした。');
-    return false;
-  }
-
-  const anchor = document.createElement('a');
-  anchor.setAttribute('rel', 'ar');
-  anchor.setAttribute('href', absolute);
-  anchor.style.position = 'absolute';
-  anchor.style.width = '1px';
-  anchor.style.height = '1px';
-  anchor.style.overflow = 'hidden';
-  anchor.style.clipPath = 'inset(50%)';
-
-  const img = document.createElement('img');
-  img.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNk+M/wHwAFygJ+Kcb5NwAAAABJRU5ErkJggg==';
-  img.alt = '';
-  img.width = 1;
-  img.height = 1;
-  anchor.appendChild(img);
-
-  document.body.appendChild(anchor);
 
   try {
+    const objectURL = await modelViewer.prepareUSDZ();
+    if (!objectURL) {
+      return false;
+    }
+
+    const anchor = document.createElement('a');
+    anchor.setAttribute('rel', 'ar');
+    anchor.setAttribute('href', objectURL);
+    anchor.style.position = 'absolute';
+    anchor.style.width = '1px';
+    anchor.style.height = '1px';
+    anchor.style.overflow = 'hidden';
+    anchor.style.clipPath = 'inset(50%)';
+
+    const img = document.createElement('img');
+    img.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNk+M/wHwAFygJ+Kcb5NwAAAABJRU5ErkJggg==';
+    img.alt = '';
+    img.width = 1;
+    img.height = 1;
+    anchor.appendChild(img);
+
+    document.body.appendChild(anchor);
+
     anchor.click();
+
+    window.setTimeout(() => {
+      URL.revokeObjectURL(objectURL);
+      document.body.removeChild(anchor);
+    }, 1000);
+
     return true;
   } catch (error) {
-    console.warn('Quick Look fallback click failed', error);
+    console.warn('Quick Look fallback conversion failed', error);
     return false;
-  } finally {
-    document.body.removeChild(anchor);
   }
 };
 
-const launchAndroidSceneViewerIntent = () => {
-  const src = modelViewer?.getAttribute('src');
-  if (!src) {
-    setFallback('Scene Viewer用のモデルが見つかりません。');
-    return false;
-  }
-
-  const absolute = buildAbsoluteUrl(src);
-  if (!absolute) {
-    setFallback('Scene Viewer用URLを解決できませんでした。');
-    return false;
-  }
-
-  if (!absolute.startsWith('https://')) {
-    setFallback('Scene ViewerはHTTPSで公開されたURLが必要です。');
-    alert('Scene ViewerはHTTPSで公開されたURLが必要です。');
-    return false;
-  }
-
-  const sceneViewerHref = `intent://arvr.google.com/scene-viewer/1.0?file=${encodeURIComponent(absolute)}&mode=ar_only#Intent;scheme=https;package=com.google.ar.core;S.browser_fallback_url=${encodeURIComponent(window.location.href)};end;`;
-
-  const anchor = document.createElement('a');
-  anchor.setAttribute('href', sceneViewerHref);
-  document.body.appendChild(anchor);
-
-  try {
-    anchor.click();
-    return true;
-  } catch (error) {
-    console.warn('Scene Viewer intent の起動に失敗しました', error);
-    return false;
-  } finally {
-    document.body.removeChild(anchor);
-  }
-};
-
-arButton?.addEventListener('click', () => {
+arButton?.addEventListener('click', async () => {
   if (!modelViewer) return;
 
-  if (isiOS && !isSafari) {
-    const launched = launchIOSQuickLookFallback();
+  if (isiOS && modelViewer.canActivateAR === false) {
+    setFallback('Quick Lookを準備しています…');
+    const launched = await launchIOSQuickLookFallback();
     if (!launched) {
       setFallback('Quick Lookが開けませんでした。Safariで再度お試しください。');
       alert('Quick Lookが開けませんでした。Safariで再度お試しください。');
-    }
-    return;
-  }
-
-  if (isAndroid) {
-    const launched = launchAndroidSceneViewerIntent();
-    if (!launched) {
-      setFallback('Scene Viewerが起動できませんでした。公開HTTPS環境に配置されているか確認してください。');
     }
     return;
   }
